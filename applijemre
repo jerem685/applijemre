@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>JEMRE</title>
+
+<style>
+body { 
+  font-family: Arial; 
+  padding: 20px; 
+  background: #f5f5f5; 
+  max-width: 600px;
+  margin: auto;
+}
+
+h1 { color: #ff5a5f; }
+
+.card {
+  background: white;
+  padding: 15px;
+  border-radius: 10px;
+  margin-top: 15px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+button {
+  padding: 10px;
+  margin: 5px 0;
+  width: 100%;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  cursor: pointer;
+  background: #ff5a5f;
+  color: white;
+}
+
+button:hover { opacity: 0.9; }
+
+#messages {
+  height: 120px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  padding: 5px;
+  background: #fafafa;
+  margin-bottom: 5px;
+}
+
+input, select {
+  width: 100%;
+  padding: 6px;
+  margin-top: 5px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>JEMRE</h1>
+<p><b>Ton sport devient un jeu</b></p>
+
+<div class="card">
+  <div>XP : <span id="xp">0</span></div>
+  <div>Niveau : <span id="niveau">1</span></div>
+  <div>Streak : <span id="streak">0</span> jours</div>
+  <div>Barre d'élan : <span id="barre">0</span>/5</div>
+  <div>Médailles : <span id="medailles">0</span> 🥇</div>
+  <div>Avatar : <span id="avatar">🏃</span></div>
+
+  <button onclick="ajouterSortie()">Ajouter une sortie</button>
+  <button onclick="validerDefi()">Valider défi hebdo (+20 🥇)</button>
+</div>
+
+<div class="card">
+  <h3>Shop</h3>
+  <button onclick="acheterObjet('casquette',20,'🧢')">Casquette (20 🥇)</button>
+  <button onclick="acheterObjet('lunettes',40,'🕶️')">Lunettes (40 🥇)</button>
+</div>
+
+<div class="card">
+  <h3>Chat communautaire</h3>
+  <div id="messages"></div>
+  <input type="text" id="messageInput" placeholder="Écris ton message...">
+  <button onclick="envoyerMessage()">Envoyer</button>
+</div>
+
+<div class="card">
+  <h3>Classement</h3>
+
+  <label>Période :</label>
+  <select id="periode">
+    <option value="jour">Journalier</option>
+    <option value="semaine">Hebdomadaire</option>
+    <option value="mois">Mensuel</option>
+    <option value="annee">Annuel</option>
+  </select>
+
+  <label>Sexe :</label>
+  <select id="filtreSexe">
+    <option value="all">Global</option>
+    <option value="H">Hommes</option>
+    <option value="F">Femmes</option>
+  </select>
+
+  <label>Tranche d'âge :</label>
+  <select id="filtreAge">
+    <option value="all">Tous</option>
+    <option value="U18">U18</option>
+    <option value="18-39">18-39</option>
+    <option value="40-49">40-49</option>
+    <option value="50+">50+</option>
+  </select>
+
+  <button onclick="afficherClassement()">Voir classement</button>
+
+  <div id="classement"></div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+  // ================= PROFIL =================
+  let joueurs = JSON.parse(localStorage.getItem("joueurs")) || [];
+  let pseudo = prompt("Ton pseudo ?") || "Joueur";
+
+  let joueurExistant = joueurs.find(j => j.nom === pseudo);
+
+  let joueur = joueurExistant || {
+    nom: pseudo,
+    age: parseInt(prompt("Ton âge ?")) || 25,
+    sexe: prompt("Sexe (H/F) ?") || "H",
+    xp: 0,
+    niveau: 1,
+    streak: 0,
+    barre: 0,
+    medailles: 0,
+    avatar: "🏃",
+    historique: []
+  };
+
+  // ================= FONCTIONS UTILITAIRES =================
+  function sauvegarder(){
+    let joueurs = JSON.parse(localStorage.getItem("joueurs")) || [];
+    joueurs = joueurs.filter(j => j.nom !== joueur.nom);
+    joueurs.push(joueur);
+    localStorage.setItem("joueurs", JSON.stringify(joueurs));
+  }
+
+  function updateUI(){
+    document.getElementById("xp").innerText = joueur.xp.toFixed(1);
+    document.getElementById("niveau").innerText = joueur.niveau;
+    document.getElementById("streak").innerText = joueur.streak;
+    document.getElementById("barre").innerText = joueur.barre;
+    document.getElementById("medailles").innerText = joueur.medailles;
+    document.getElementById("avatar").innerText = joueur.avatar;
+  }
+
+  // ================= PROGRESSION NIVEAUX =================
+  function calculerNiveau(xp){
+    let niveau = 1;
+    let xpRequis = 0;
+    let increment = 50;
+    while(xp >= xpRequis){
+      xpRequis += increment;
+      increment += 50;
+      niveau++;
+    }
+    return niveau - 1;
+  }
+
+  // ================= GAME LOGIC =================
+  function ajouterSortie(){
+    let km = parseFloat(prompt("Combien de km ?"));
+    let duree = parseInt(prompt("Durée en minutes ?"));
+
+    if(km >= 2 || duree >= 15){
+      let gainXP = km + 5;
+      joueur.xp += gainXP;
+      joueur.streak++;
+      joueur.barre++;
+      joueur.historique.push({ date: new Date(), xp: gainXP });
+
+      if(joueur.barre >= 5){
+        joueur.xp += 40;
+        joueur.barre = 0;
+        alert("Barre pleine ! +40 XP 🔥");
+      }
+
+      joueur.niveau = calculerNiveau(joueur.xp);
+      sauvegarder();
+      updateUI();
+    } else {
+      alert("Sortie trop courte !");
+    }
+  }
+
+  function validerDefi(){
+    joueur.medailles += 20;
+    sauvegarder();
+    updateUI();
+  }
+
+  function acheterObjet(nom, prix, emoji){
+    if(joueur.medailles >= prix){
+      joueur.medailles -= prix;
+      joueur.avatar = emoji;
+    }
+    sauvegarder();
+    updateUI();
+  }
+
+  function envoyerMessage(){
+    let msg = document.getElementById("messageInput").value.trim();
+    if(msg){
+      let p = document.createElement("p");
+      p.textContent = "🗨️ " + msg;
+      document.getElementById("messages").appendChild(p);
+      document.getElementById("messageInput").value = "";
+    }
+  }
+
+  // ================= CLASSEMENT =================
+  function getTrancheAge(age){
+    if(age < 18) return "U18";
+    if(age <= 39) return "18-39";
+    if(age <= 49) return "40-49";
+    return "50+";
+  }
+
+  Date.prototype.getWeek = function(){
+    let date = new Date(this.getTime());
+    date.setHours(0,0,0,0);
+    date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+    let week1 = new Date(date.getFullYear(),0,4);
+    return 1 + Math.round(((date - week1)/86400000 - 3 + (week1.getDay()+6)%7)/7);
+  };
+
+  function filtrePeriode(historique, periode){
+    let now = new Date();
+    return historique.filter(entry=>{
+      let d = new Date(entry.date);
+      if(periode==="jour") return d.toDateString()===now.toDateString();
+      if(periode==="semaine") return d.getWeek()===now.getWeek() && d.getFullYear()===now.getFullYear();
+      if(periode==="mois") return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+      if(periode==="annee") return d.getFullYear()===now.getFullYear();
+    });
+  }
+
+  function afficherClassement(){
+    let joueurs = JSON.parse(localStorage.getItem("joueurs")) || [];
+    let periodeChoisie = document.getElementById("periode").value;
+    let sexeFiltre = document.getElementById("filtreSexe").value;
+    let ageFiltre = document.getElementById("filtreAge").value;
+
+    let classement = joueurs.map(j=>{
+      let hist = filtrePeriode(j.historique, periodeChoisie);
+      let totalXP = hist.reduce((sum,e)=>sum+e.xp,0);
+      return {nom:j.nom, sexe:j.sexe, age:j.age, xp:totalXP};
+    });
+
+    if(sexeFiltre!=="all") classement = classement.filter(j=>j.sexe===sexeFiltre);
+    if(ageFiltre!=="all") classement = classement.filter(j=>getTrancheAge(j.age)===ageFiltre);
+
+    classement.sort((a,b)=>b.xp-a.xp);
+
+    let html="<ol>";
+    classement.forEach(j=>{ html+=`<li>${j.nom} - ${j.xp.toFixed(1)} XP</li>`; });
+    html+="</ol>";
+
+    document.getElementById("classement").innerHTML = html;
+  }
+
+  // ================= INIT =================
+  sauvegarder();
+  updateUI();
+
+  // Expose les fonctions globalement pour les boutons
+  window.ajouterSortie = ajouterSortie;
+  window.validerDefi = validerDefi;
+  window.acheterObjet = acheterObjet;
+  window.envoyerMessage = envoyerMessage;
+  window.afficherClassement = afficherClassement;
+
+});
+</script>
+
+</body>
+</html>
